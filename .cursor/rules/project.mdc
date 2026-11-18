@@ -1,0 +1,62 @@
+---
+description: Reglas del proyecto Mesa para Cursor AI
+globs: ["**/*.ts", "**/*.tsx", "**/*.css"]
+alwaysApply: true
+---
+
+# Reglas del Proyecto Mesa
+
+## TypeScript
+
+- Usar TypeScript estricto en todo momento (`"strict": true`).
+- No usar `any` donde sea evitable; preferir tipos explícitos o `unknown`.
+- Tipar los parámetros de funciones y los retornos de servicios y controllers.
+
+## Base de Datos (SQLite)
+
+- **Siempre usar consultas parametrizadas** con `?` o named params de `better-sqlite3`.
+- **Nunca** concatenar input del usuario en strings SQL. Esto es SQL injection.
+- Ejemplo correcto: `db.prepare('SELECT * FROM users WHERE email = ?').get(email)`
+- Ejemplo incorrecto: `` db.prepare(`SELECT * FROM users WHERE email = '${email}'`).get() ``
+
+## Arquitectura por Capas
+
+Respetar el flujo unidireccional estricto:
+
+```
+routes → controllers → services → repositories → SQLite
+```
+
+- **Routes**: Solo registrar rutas y aplicar middlewares (`auth`, `authorize`).
+- **Controllers**: Solo parsear `req`, llamar al service, devolver `res`. Sin SQL ni lógica.
+- **Services**: Toda la lógica de negocio. Sin HTTP (`req`/`res`). Sin SQL directo.
+- **Repositories**: Solo SQL parametrizado. Sin lógica de negocio.
+
+## CSS
+
+- Usar CSS propio organizado por componente (`Componente.css` junto a `Componente.tsx`).
+- Variables CSS globales en `src/styles/variables.css`.
+- **No usar Tailwind, Bootstrap, ni ningún framework CSS.**
+
+## Seguridad
+
+- **Nunca devolver `password_hash`** en ninguna respuesta JSON de la API.
+- **Nunca devolver tokens** en logs ni en respuestas de error.
+- El backend **valida permisos en cada ruta** con el middleware `authorize`. No confiar solo en el frontend.
+- Los comentarios `internal` deben ser filtrados antes de responder a usuarios con rol `user`.
+- Un usuario con `active = 0` no puede autenticarse; el login debe retornar 401.
+
+## Reglas de Negocio
+
+- Los usuarios con rol `user` solo pueden ver sus propios tickets (`created_by = req.user.id`).
+- Solo `agent` y `admin` pueden cambiar el estado de un ticket o asignar agentes.
+- El código de ticket (`TCK-NNNN`) lo genera el backend; el cliente nunca lo elige.
+- Al cambiar el status a `Resuelto`, registrar `resolved_at = datetime('now')`.
+- Al agregar comentarios, asignar ticket o cambiar estado, generar notificación automática.
+
+## Frontend
+
+- No hacer `fetch` directo en componentes. Usar funciones de `src/api/`.
+- No usar `useState` como almacenamiento permanente entre sesiones (usar `localStorage` con cuidado y solo para el token).
+- Parsear fechas ISO a hora local al mostrarlas.
+- Manejar errores de red con mensajes claros al usuario.
